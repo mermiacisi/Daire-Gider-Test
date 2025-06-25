@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Daire Gider Takip</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: auto;
+      padding: 10px;
+      background: #f0f4f8;
+    }
+    h2 {
+      text-align: center;
+    }
+    #loginScreen,
+    #mainScreen {
+      margin-top: 30px;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    }
+    input, select, button {
+      width: 100%;
+      padding: 8px;
+      margin: 6px 0 12px 0;
+      box-sizing: border-box;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #1976d2;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #1565c0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #1976d2;
+      color: white;
+    }
+    .hidden {
+      display: none;
+    }
+    #logoutBtn {
+      background-color: #e53935;
+      margin-top: 15px;
+    }
+  </style>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+  <h2>Daire Gider Takip Sistemi</h2>
+
+  <div id="loginScreen">
+    <input type="text" id="kadi" placeholder="Kullanıcı Adı" />
+    <input type="password" id="sifre" placeholder="Şifre" />
+    <button onclick="login()">Giriş Yap</button>
+  </div>
+
+  <div id="mainScreen" class="hidden">
+    <h3>Gider Kaydı Ekle</h3>
+    <input type="text" id="daireNo" placeholder="Daire No" />
+    <input type="month" id="ay" placeholder="Ay" />
+    <input type="number" id="kira" placeholder="Kira" min="0" />
+    <input type="number" id="elektrik" placeholder="Elektrik" min="0" />
+    <input type="number" id="su" placeholder="Su" min="0" />
+    <input type="number" id="dogalgaz" placeholder="Doğalgaz" min="0" />
+    <input type="number" id="aidat" placeholder="Aidat" min="0" />
+    <input type="number" id="diger" placeholder="Diğer Gider" min="0" />
+
+    <button onclick="saveRecord()">Kaydet</button>
+
+    <h3>Kayıtlar</h3>
+    <div id="records"></div>
+
+    <button id="logoutBtn" onclick="logout()">Çıkış Yap</button>
+  </div>
+
+  <script>
+    // Firebase yapılandırma
+    const firebaseConfig = {
+      apiKey: "AIzaSyCsPR1RlX6jjUjnrO8YJf9ogQx0JX9YKE8",
+      authDomain: "daire-takip-proje.firebaseapp.com",
+      databaseURL: "https://daire-takip-proje-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "daire-takip-proje",
+      storageBucket: "daire-takip-proje.firebasestorage.app",
+      messagingSenderId: "416626412294",
+      appId: "1:416626412294:web:6a33c4e47ef58bcf74ec87",
+      measurementId: "G-PH979363KB"
+    };
+
+    // Firebase başlat
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Basit kullanıcı adı ve şifre (hardcoded)
+    const USER = "admin";
+    const PASS = "1234";
+
+    // Giriş fonksiyonu
+    function login() {
+      const kadi = document.getElementById("kadi").value.trim();
+      const sifre = document.getElementById("sifre").value.trim();
+      if (kadi === USER && sifre === PASS) {
+        document.getElementById("loginScreen").classList.add("hidden");
+        document.getElementById("mainScreen").classList.remove("hidden");
+        fetchRecords();
+      } else {
+        alert("Hatalı kullanıcı adı veya şifre");
+      }
+    }
+
+    // Kayıtları Firebase'den çek ve göster
+    function fetchRecords() {
+      db.ref("records").once("value").then(snapshot => {
+        const data = snapshot.val() || {};
+        renderRecords(data);
+      });
+    }
+
+    // Kayıtları tablo halinde göster
+    function renderRecords(data) {
+      const keys = Object.keys(data);
+      let html = `<table>
+        <tr>
+          <th>Daire</th>
+          <th>Ay</th>
+          <th>Kira</th>
+          <th>Elektrik</th>
+          <th>Su</th>
+          <th>Doğalgaz</th>
+          <th>Aidat</th>
+          <th>Diğer</th>
+          <th>Toplam</th>
+        </tr>`;
+
+      let genelToplam = 0;
+      keys.forEach(key => {
+        const r = data[key];
+        const toplam = (r.kira||0) + (r.elektrik||0) + (r.su||0) + (r.dogalgaz||0) + (r.aidat||0) + (r.diger||0);
+        genelToplam += toplam;
+
+        html += `<tr>
+          <td>${r.daire || ''}</td>
+          <td>${r.ay || ''}</td>
+          <td>${r.kira || 0}</td>
+          <td>${r.elektrik || 0}</td>
+          <td>${r.su || 0}</td>
+          <td>${r.dogalgaz || 0}</td>
+          <td>${r.aidat || 0}</td>
+          <td>${r.diger || 0}</td>
+          <td><b>${toplam.toFixed(2)}</b></td>
+        </tr>`;
+      });
+
+      html += `<tr style="font-weight:bold; background:#eee;">
+          <td colspan="8">Genel Toplam</td>
+          <td>${genelToplam.toFixed(2)}</td>
+        </tr>`;
+      html += `</table>`;
+
+      document.getElementById("records").innerHTML = html;
+    }
+
+    // Kayıt ekleme fonksiyonu
+    function saveRecord() {
+      const rec = {
+        daire: document.getElementById("daireNo").value.trim(),
+        ay: document.getElementById("ay").value,
+        kira: Number(document.getElementById("kira").value) || 0,
+        elektrik: Number(document.getElementById("elektrik").value) || 0,
+        su: Number(document.getElementById("su").value) || 0,
+        dogalgaz: Number(document.getElementById("dogalgaz").value) || 0,
+        aidat: Number(document.getElementById("aidat").value) || 0,
+        diger: Number(document.getElementById("diger").value) || 0,
+      };
+
+      if (!rec.daire || !rec.ay) {
+        alert("Daire numarası ve ay bilgisi zorunludur!");
+        return;
+      }
+
+      const newKey = db.ref().child('records').push().key;
+      const updates = {};
+      updates['/records/' + newKey] = rec;
+      db.ref().update(updates).then(() => {
+        alert("Kayıt başarıyla eklendi.");
+        // Formu temizle
+        document.getElementById("daireNo").value = "";
+        document.getElementById("ay").value = "";
+        document.getElementById("kira").value = "";
+        document.getElementById("elektrik").value = "";
+        document.getElementById("su").value = "";
+        document.getElementById("dogalgaz").value = "";
+        document.getElementById("aidat").value = "";
+        document.getElementById("diger").value = "";
+        fetchRecords();
+      }).catch(err => {
+        alert("Hata oluştu: " + err.message);
+      });
+    }
+
+    // Çıkış yap
+    function logout() {
+      document.getElementById("mainScreen").classList.add("hidden");
+      document.getElementById("loginScreen").classList.remove("hidden");
+      // Giriş alanlarını temizle
+      document.getElementById("kadi").value = "";
+      document.getElementById("sifre").value = "";
+      document.getElementById("records").innerHTML = "";
+    }
+  </script>
+
+</body>
+</html>
